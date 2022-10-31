@@ -74,6 +74,41 @@ func TestAccIBMCbrZoneAllArgs(t *testing.T) {
 	})
 }
 
+func TestAccIBMCbrZoneRegionalServiceRef(t *testing.T) {
+	var conf contextbasedrestrictionsv1.Zone
+	name := fmt.Sprintf("tf_name_%d", acctest.RandIntRange(10, 100))
+	accountID := fmt.Sprintf("404d2418b26b4704981811df1963d177")
+	description := fmt.Sprintf("tf_description_%d", acctest.RandIntRange(10, 100))
+	serviceName := "containers-kubernetes"
+	location := "us-south"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { acc.TestAccPreCheck(t) },
+		Providers:    acc.TestAccProviders,
+		CheckDestroy: testAccCheckIBMCbrZoneDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccCheckIBMCbrZoneRegionalServiceRefConfig(name, accountID, description, serviceName, location),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckIBMCbrZoneExists("ibm_cbr_zone.cbr_zone", conf),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "name", name),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "account_id", accountID),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "description", description),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "addresses.#", "1"),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "addresses.0.type", "serviceRef"),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "addresses.0.ref.0.service_name", serviceName),
+					resource.TestCheckResourceAttr("ibm_cbr_zone.cbr_zone", "addresses.0.ref.0.location", location),
+				),
+			},
+			resource.TestStep{
+				ResourceName:      "ibm_cbr_zone.cbr_zone",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 func testAccCheckIBMCbrZoneConfigBasic() string {
 	return fmt.Sprintf(`
 		resource "ibm_cbr_zone" "cbr_zone" {
@@ -111,6 +146,24 @@ func testAccCheckIBMCbrZoneConfig(name string, accountID string, description str
 			}
 		}
 	`, name, description, accountID, accountID)
+}
+
+func testAccCheckIBMCbrZoneRegionalServiceRefConfig(name string, accountID string, description string, serviceName string, location string) string {
+	return fmt.Sprintf(`
+		resource "ibm_cbr_zone" "cbr_zone" {
+			name = "%[1]s"
+			description = "%[3]s"
+			account_id = "%[2]s"
+			addresses {
+				type = "serviceRef"
+				ref {
+					account_id = "%[2]s"
+					service_name = "%[4]s"
+					location = "%[5]s"
+				}
+			}
+		}
+	`, name, accountID, description, serviceName, location)
 }
 
 func testAccCheckIBMCbrZoneExists(n string, obj contextbasedrestrictionsv1.Zone) resource.TestCheckFunc {
